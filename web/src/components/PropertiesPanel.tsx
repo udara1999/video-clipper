@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CANVAS_H, CANVAS_W, FONTS, type ComposeLayout, type TextOverlay } from '../../../shared/compose';
 import { pickFile } from '../lib/api';
 import type { Selection } from './CompositionPanel';
@@ -34,6 +35,8 @@ export function PropertiesPanel({
   onSelect,
   clipCount,
 }: PropertiesPanelProps) {
+  const [error, setError] = useState<string | null>(null);
+
   const selectedText =
     typeof selection === 'object' && selection
       ? layout.texts.find((t) => t.id === selection.textId) ?? null
@@ -47,8 +50,15 @@ export function PropertiesPanel({
   }
 
   async function chooseBackground() {
-    const path = await pickFile('image').catch(() => null);
+    let path: string | null;
+    try {
+      path = await pickFile('image');
+    } catch (err) {
+      setError((err as Error).message ?? 'Failed to choose an image');
+      return;
+    }
     if (!path) return;
+    setError(null);
     onLayoutChange({
       ...layout,
       background: {
@@ -109,6 +119,7 @@ export function PropertiesPanel({
           <button onClick={() => onLayoutChange({ ...layout, background: null })}>Remove</button>
         )}
       </div>
+      {error && <p className="error">{error}</p>}
       {layout.background && (
         <div className="prop-row">
           <label>Image</label>

@@ -215,6 +215,7 @@ exportRouter.post('/api/export', async (req, res) => {
         outputDir,
         prefix,
         compose,
+        frameRate: info.frameRate,
       });
       return void res.json({ jobId });
     }

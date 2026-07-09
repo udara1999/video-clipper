@@ -83,7 +83,7 @@ export function buildComposeFilter(
   const w = Math.max(2, Math.round(video.width / 2) * 2);
   const x = Math.round(video.x);
   const y = Math.round(video.y);
-  const parts = [`[0:v]scale=${w}:-2[v0]`, `[1:v][v0]overlay=${x}:${y}[c0]`];
+  const parts = [`[0:v]scale=${w}:-2[v0]`, `[1:v][v0]overlay=${x}:${y}:shortest=1[c0]`];
   texts.forEach((t, i) => {
     parts.push(
       `[c${i}][${i + 2}:v]overlay=0:0:enable='between(t,${t.start},${t.end})'[c${i + 1}]`,
@@ -98,6 +98,7 @@ export interface ComposeStartOptions {
   outputDir: string;
   prefix: string;
   compose: ComposeInput;
+  frameRate: string;
 }
 
 export function startComposeExport(opts: ComposeStartOptions): string {
@@ -157,7 +158,7 @@ async function runCompose(job: ExportJob, opts: ComposeStartOptions): Promise<vo
         '-ss', String(start),
         '-t', String(dur),
         '-i', opts.sourcePath,
-        '-i', bgPath,
+        '-loop', '1', '-framerate', opts.frameRate, '-i', bgPath,
         ...clipTexts.flatMap((t) => ['-i', t.png]),
         '-filter_complex', filter,
         '-map', `[c${clipTexts.length}]`,
@@ -168,7 +169,7 @@ async function runCompose(job: ExportJob, opts: ComposeStartOptions): Promise<vo
         '-progress', 'pipe:1',
         outPath,
       ];
-      await runComposeFfmpeg(job, args, i, count, dur, outName);
+      await runComposeFfmpeg(job, args, i, count, dur, outName, outPath);
 
       const probe = await ffprobeJson(outPath);
       results.push({
@@ -193,6 +194,7 @@ function runComposeFfmpeg(
   clipCount: number,
   clipDur: number,
   outName: string,
+  outPath: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath!, args);
@@ -213,6 +215,7 @@ function runComposeFfmpeg(
     proc.on('close', (code) => {
       if (code === 0) return resolve();
       job.stderrTail = stderrTail;
+      fs.rmSync(outPath, { force: true });
       reject(new Error(`ffmpeg exited with code ${code} while writing ${outName}`));
     });
   });

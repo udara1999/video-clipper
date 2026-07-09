@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,9 +26,19 @@ beforeAll(async () => {
   bgDataUrl = `data:image/png;base64,${fs.readFileSync(bgPath).toString('base64')}`;
 });
 
+const createdOutDirs: string[] = [];
+
 function tmpOutDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'video-clipper-vtest-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'video-clipper-vtest-'));
+  createdOutDirs.push(dir);
+  return dir;
 }
+
+afterAll(() => {
+  for (const dir of createdOutDirs) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 async function waitForJob(id: string) {
   const deadline = Date.now() + 60_000;
@@ -78,6 +88,7 @@ describe('POST /api/export mode=vertical', () => {
       expect(v.codec_name).toBe('h264');
       expect(v.width).toBe(1080);
       expect(v.height).toBe(1920);
+      expect(v.r_frame_rate).toBe('30/1');
       total += Number(probe.format.duration);
     }
     // Frame-accurate cutting: first clip ~4s, second ~6s
@@ -135,6 +146,22 @@ describe('POST /api/export mode=vertical', () => {
     const res = await request(app).post('/api/export').send(verticalBody(outDir));
     expect(res.status).toBe(409);
     expect(res.body.conflicts).toContain('01 - clip.mp4');
+  });
+
+  test('mid-sequence ffmpeg failure surfaces an error and no partial results', async () => {
+    const outDir = tmpOutDir();
+    fs.chmodSync(outDir, 0o555);
+    try {
+      const res = await request(app).post('/api/export').send(verticalBody(outDir));
+      expect(res.status).toBe(200);
+      const job = await waitForJob(res.body.jobId);
+      expect(job.status).toBe('error');
+      expect(job.error).toMatch(/01 - clip\.mp4/);
+      expect(job.stderrTail).toBeTruthy();
+      expect(job.results).toBeUndefined();
+    } finally {
+      fs.chmodSync(outDir, 0o755);
+    }
   });
 
   test('texts entirely outside a clip are dropped, not errored', async () => {

@@ -8,6 +8,7 @@ export interface VideoInfo {
   width: number;
   height: number;
   previewable: boolean;
+  frameRate: string;
 }
 
 async function readError(res: Response, fallback: string): Promise<string> {

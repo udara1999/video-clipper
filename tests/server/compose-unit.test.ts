@@ -73,7 +73,7 @@ describe('validateComposeInput', () => {
 describe('buildComposeFilter', () => {
   test('no texts: scale video onto background', () => {
     expect(buildComposeFilter({ x: 0, y: 656, width: 1080 }, [])).toBe(
-      "[0:v]scale=1080:-2[v0];[1:v][v0]overlay=0:656[c0]",
+      "[0:v]scale=1080:-2[v0];[1:v][v0]overlay=0:656:shortest=1[c0]",
     );
   });
   test('texts chain with enable timing', () => {
@@ -83,14 +83,14 @@ describe('buildComposeFilter', () => {
         { start: 1.5, end: 4 },
       ]),
     ).toBe(
-      "[0:v]scale=1000:-2[v0];[1:v][v0]overlay=10:20[c0];" +
+      "[0:v]scale=1000:-2[v0];[1:v][v0]overlay=10:20:shortest=1[c0];" +
         "[c0][2:v]overlay=0:0:enable='between(t,0,3)'[c1];" +
         "[c1][3:v]overlay=0:0:enable='between(t,1.5,4)'[c2]",
     );
   });
   test('rounds odd widths up to even and rounds positions', () => {
     expect(buildComposeFilter({ x: 1.6, y: 2.4, width: 1079 }, [])).toBe(
-      "[0:v]scale=1080:-2[v0];[1:v][v0]overlay=2:2[c0]",
+      "[0:v]scale=1080:-2[v0];[1:v][v0]overlay=2:2:shortest=1[c0]",
     );
   });
 });

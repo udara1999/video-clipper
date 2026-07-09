@@ -46,7 +46,6 @@ function makeCanvas(): [HTMLCanvasElement, CanvasRenderingContext2D] {
 function bakeText(t: TextOverlay, content: string): string {
   const [c, ctx] = makeCanvas();
   ctx.font = `${t.sizePx}px "${t.font}"`;
-  ctx.textBaseline = 'top';
   const lines = content.split('\n');
   const lineHeight = t.sizePx * TEXT_LINE_HEIGHT;
   const pad = t.sizePx * TEXT_PAD_RATIO;
@@ -66,7 +65,10 @@ function bakeText(t: TextOverlay, content: string): string {
   }
   ctx.fillStyle = t.color;
   lines.forEach((line, i) => {
-    ctx.fillText(line, t.x, t.y + i * lineHeight + (lineHeight - t.sizePx) / 2);
+    const m = ctx.measureText(line);
+    const fontHeight = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent;
+    const halfLeading = (lineHeight - fontHeight) / 2;
+    ctx.fillText(line, t.x, t.y + i * lineHeight + halfLeading + m.fontBoundingBoxAscent);
   });
   return c.toDataURL('image/png');
 }

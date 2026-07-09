@@ -34,6 +34,7 @@ export interface VideoInfo {
   width: number;
   height: number;
   previewable: boolean;
+  frameRate: string;
 }
 
 export async function getVideoInfo(filePath: string): Promise<VideoInfo> {
@@ -53,6 +54,7 @@ export async function getVideoInfo(filePath: string): Promise<VideoInfo> {
     width: v.width ?? 0,
     height: v.height ?? 0,
     previewable: isLikelyPreviewable(ext, v.codec_name ?? ''),
+    frameRate: typeof v.r_frame_rate === 'string' && v.r_frame_rate !== '' ? v.r_frame_rate : '30/1',
   };
 }
 
