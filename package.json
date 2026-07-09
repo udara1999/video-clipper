@@ -16,6 +16,14 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@fontsource/anton": "^5.2.7",
+    "@fontsource/archivo-black": "^5.2.8",
+    "@fontsource/bangers": "^5.2.8",
+    "@fontsource/bebas-neue": "^5.2.7",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/montserrat": "^5.2.8",
+    "@fontsource/oswald": "^5.2.8",
+    "@fontsource/roboto-condensed": "^5.2.8",
     "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
     "ffprobe-static": "^3.1.0",

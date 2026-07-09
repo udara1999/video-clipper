@@ -19,14 +19,20 @@ async function readError(res: Response, fallback: string): Promise<string> {
   }
 }
 
-async function post(url: string): Promise<any> {
-  const res = await fetch(url, { method: 'POST' });
+async function post(url: string, body?: unknown): Promise<any> {
+  const res = await fetch(url, {
+    method: 'POST',
+    ...(body !== undefined && {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  });
   if (!res.ok) throw new Error(await readError(res, `Request failed (${res.status})`));
   return res.json();
 }
 
-export async function pickFile(): Promise<string | null> {
-  return (await post('/api/dialog/file')).path;
+export async function pickFile(kind: 'video' | 'image' = 'video'): Promise<string | null> {
+  return (await post('/api/dialog/file', { kind })).path;
 }
 
 export async function pickFolder(): Promise<string | null> {
