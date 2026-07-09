@@ -1,8 +1,10 @@
 # Video Clipper
 
-A small local web app that splits a long video into clips **losslessly** (ffmpeg
-stream copy — no re-encoding, zero quality loss). Cuts snap to the nearest
-keyframe at/after each requested split time.
+A small local web app that splits a long video into clips **losslessly**, or
+composes them onto a 1080×1920 vertical canvas (background image + text
+overlays) for TikTok/FB — with a dark, editor-style UI. Lossless splits use
+ffmpeg stream copy — no re-encoding, zero quality loss. Cuts snap to the
+nearest keyframe at/after each requested split time.
 
 ## Usage
 
@@ -26,6 +28,23 @@ The app builds the frontend, starts a local server on `http://localhost:4859`
    `01 - <prefix>.<ext>`, `02 - <prefix>.<ext>`, … so they sort in timeline
    order. The results list shows each clip's actual keyframe-snapped
    start/end times.
+
+### Vertical 9:16 mode (TikTok / FB / Shorts)
+
+Switch the toggle above the player to **Vertical 9:16** to compose clips for
+vertical platforms:
+
+- Drag and resize the gameplay video on a 1080×1920 canvas.
+- Add a background image (drag/scale it behind the video).
+- Add text overlays — font, size, color, box, shadow — with per-text show
+  times inside each clip. Use `{n}` in a text for the clip number
+  ("Part {n}" → "Part 1", "Part 2", …), or override the text per clip.
+- One layout applies to every clip; export re-encodes each clip to
+  1080×1920 H.264 MP4 (this mode is not lossless — re-encoding is what
+  makes the composition possible).
+
+The preview is what ffmpeg renders: backgrounds and texts are rasterized in
+the browser and composited by ffmpeg unchanged.
 
 Works on macOS and Windows. ffmpeg/ffprobe are bundled via npm packages —
 no manual install needed.
