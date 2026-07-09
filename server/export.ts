@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
@@ -12,30 +11,11 @@ import {
   segmentPattern,
   sourceExtension,
 } from '../shared/naming';
+import { createJob, getJob, type ClipResult, type ExportJob } from './jobs';
 import { ffprobeJson, getVideoInfo } from './video';
 
-export interface ClipResult {
-  fileName: string;
-  start: number;
-  end: number;
-  duration: number;
-}
-
-export interface ExportJob {
-  id: string;
-  status: 'running' | 'done' | 'error';
-  percent: number;
-  error?: string;
-  stderrTail?: string;
-  results?: ClipResult[];
-  mergedCuts?: number;
-}
-
-const jobs = new Map<string, ExportJob>();
-
-export function getJob(id: string): ExportJob | undefined {
-  return jobs.get(id);
-}
+export { getJob };
+export type { ClipResult, ExportJob };
 
 export function checkConflicts(outputDir: string, count: number, prefix: string, ext: string): string[] {
   const conflicts: string[] = [];
@@ -73,9 +53,8 @@ interface StartOptions {
 }
 
 function startExport(opts: StartOptions): string {
-  const id = randomUUID();
-  const job: ExportJob = { id, status: 'running', percent: 0 };
-  jobs.set(id, job);
+  const job = createJob();
+  const id = job.id;
 
   const count = opts.splits.length + 1;
   // Only the ffmpeg pattern argument needs the output dir escaped: ffmpeg's
