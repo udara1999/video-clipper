@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { fileDialogCommand, folderDialogCommand } from '../../server/dialogs';
+import { fileDialogCommand, folderDialogCommand, runDialog } from '../../server/dialogs';
 
 describe('fileDialogCommand', () => {
   test('macOS uses osascript choose file', () => {
@@ -36,5 +36,38 @@ describe('folderDialogCommand', () => {
 
   test('throws on unsupported platforms', () => {
     expect(() => folderDialogCommand('linux')).toThrow(/not supported/);
+  });
+});
+
+describe('runDialog', () => {
+  test('resolves trimmed stdout on success', async () => {
+    await expect(
+      runDialog({ cmd: 'sh', args: ['-c', 'echo /tmp/some path.mp4'] }),
+    ).resolves.toBe('/tmp/some path.mp4');
+  });
+
+  test('resolves null on empty stdout with exit 0', async () => {
+    await expect(runDialog({ cmd: 'sh', args: ['-c', 'true'] })).resolves.toBeNull();
+  });
+
+  test('resolves null on cancel-style failure', async () => {
+    await expect(
+      runDialog({
+        cmd: 'sh',
+        args: ['-c', 'echo "execution error: User canceled. (-128)" >&2; exit 1'],
+      }),
+    ).resolves.toBeNull();
+  });
+
+  test('rejects on genuine failure with stderr in the message', async () => {
+    await expect(
+      runDialog({ cmd: 'sh', args: ['-c', 'echo boom >&2; exit 2'] }),
+    ).rejects.toThrow(/boom/);
+  });
+
+  test('rejects on missing binary', async () => {
+    await expect(
+      runDialog({ cmd: 'definitely-not-a-real-binary-xyz', args: [] }),
+    ).rejects.toThrow();
   });
 });

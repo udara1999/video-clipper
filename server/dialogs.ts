@@ -55,18 +55,42 @@ export function folderDialogCommand(platform: string): DialogCommand {
   throw new Error(`Native dialogs are not supported on platform "${platform}"`);
 }
 
-// Cancelling produces no stdout (osascript exits 1, PowerShell prints nothing) → null.
-function runDialog(command: DialogCommand): Promise<string | null> {
-  return new Promise((resolve) => {
+// osascript exits 1 with "User canceled." (error -128) on cancel; PowerShell
+// exits 0 printing nothing. Both resolve null. Genuine failures reject.
+function isCancellation(stderr: string): boolean {
+  return /cancell?ed|-128/i.test(stderr);
+}
+
+export function runDialog(command: DialogCommand): Promise<string | null> {
+  return new Promise((resolve, reject) => {
     const proc = spawn(command.cmd, command.args);
     let out = '';
+    let err = '';
     proc.stdout.on('data', (d) => {
       out += d;
     });
-    proc.on('error', () => resolve(null));
-    proc.on('close', () => {
-      const chosen = out.trim();
-      resolve(chosen === '' ? null : chosen);
+    proc.stderr.on('data', (d) => {
+      err += d;
+    });
+    proc.on('error', (spawnErr) => {
+      reject(new Error(`Failed to launch "${command.cmd}": ${spawnErr.message}`));
+    });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        const chosen = out.trim();
+        resolve(chosen === '' ? null : chosen);
+        return;
+      }
+      if (isCancellation(err)) {
+        resolve(null);
+        return;
+      }
+      const stderrTail = err.trim().split('\n').slice(-5).join('\n');
+      reject(
+        new Error(
+          `Dialog command "${command.cmd}" exited with code ${code}: ${stderrTail || '(no stderr)'}`,
+        ),
+      );
     });
   });
 }
