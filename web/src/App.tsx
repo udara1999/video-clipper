@@ -60,40 +60,55 @@ export default function App() {
 
   return (
     <main>
-      <h1>Video Clipper</h1>
-      <button onClick={chooseVideo}>{video ? 'Choose another video…' : 'Choose video…'}</button>
-      {error && <p className="error">{error}</p>}
-      {video && (
-        <>
+      <header className="app-header">
+        <h1>Video Clipper</h1>
+        {video && (
           <p className="video-info">
             <strong>{video.fileName}</strong> — {formatTimestamp(video.durationSec)} ·{' '}
             {video.width}×{video.height} · {video.videoCodec} · {video.container}
           </p>
+        )}
+        <div className="spacer" />
+        <button onClick={chooseVideo}>{video ? 'Choose another video…' : 'Choose video…'}</button>
+      </header>
+      {error && <p className="error">{error}</p>}
+      {video && (
+        <>
           {!video.previewable && (
             <p className="notice">
               This format may not preview in the browser. You can still add split times
-              manually below and export losslessly.
+              manually and export.
             </p>
           )}
-          <video
-            ref={videoRef}
-            src={streamUrl(video.path)}
-            controls
-            className="player"
-            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-          />
-          <div className="split-controls">
-            <button onClick={splitHere}>Split here (S)</button>
-            <span>at {formatTimestamp(currentTime)}</span>
+          <div className="workspace">
+            <div className="stage-col">
+              <video
+                ref={videoRef}
+                src={streamUrl(video.path)}
+                controls
+                className="player"
+                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              />
+              <div className="split-controls">
+                <button onClick={splitHere}>Split here (S)</button>
+                <span>at {formatTimestamp(currentTime)}</span>
+              </div>
+              <Timeline
+                duration={video.durationSec}
+                splits={splits}
+                onRemoveSplit={(t) => setNormalizedSplits(splits.filter((x) => x !== t))}
+                onSeek={seek}
+              />
+            </div>
+            <aside className="side-col">
+              <div className="panel">
+                <SplitEditor splits={splits} duration={video.durationSec} onChange={setNormalizedSplits} />
+              </div>
+              <div className="panel">
+                <ExportPanel video={video} splits={splits} />
+              </div>
+            </aside>
           </div>
-          <Timeline
-            duration={video.durationSec}
-            splits={splits}
-            onRemoveSplit={(t) => setNormalizedSplits(splits.filter((x) => x !== t))}
-            onSeek={seek}
-          />
-          <SplitEditor splits={splits} duration={video.durationSec} onChange={setNormalizedSplits} />
-          <ExportPanel video={video} splits={splits} />
         </>
       )}
     </main>
