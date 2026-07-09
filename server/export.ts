@@ -13,7 +13,7 @@ import {
 } from '../shared/naming';
 import { createJob, getJob, type ClipResult, type ExportJob } from './jobs';
 import { ffprobeJson, getVideoInfo } from './video';
-import { startComposeExport, validateComposeInput } from './compose';
+import { startComposeExport, validateComposeInput, type ComposeInput } from './compose';
 
 export { getJob };
 export type { ClipResult, ExportJob };
@@ -186,6 +186,15 @@ exportRouter.post('/api/export', async (req, res) => {
     const ext = mode === 'vertical' ? 'mp4' : sourceExtension(sourcePath);
     const count = splits.length + 1;
 
+    // Validate the compose payload before the overwrite branch below deletes
+    // anything, so a malformed request can never destroy existing files.
+    let compose: ComposeInput | null = null;
+    if (mode === 'vertical') {
+      const parsed = validateComposeInput(body, count);
+      if (!parsed.ok) return void res.status(400).json({ error: parsed.error });
+      compose = parsed.value;
+    }
+
     const conflicts = checkConflicts(outputDir, count, prefix, ext);
     const staleClips = findStaleClips(outputDir, count, prefix, ext);
     if (overwrite !== true) {
@@ -199,15 +208,13 @@ exportRouter.post('/api/export', async (req, res) => {
       }
     }
 
-    if (mode === 'vertical') {
-      const parsed = validateComposeInput(body, count);
-      if (!parsed.ok) return void res.status(400).json({ error: parsed.error });
+    if (compose !== null) {
       const jobId = startComposeExport({
         sourcePath,
         bounds: [0, ...splits, info.durationSec],
         outputDir,
         prefix,
-        compose: parsed.value,
+        compose,
       });
       return void res.json({ jobId });
     }

@@ -109,6 +109,26 @@ describe('POST /api/export mode=vertical', () => {
     expect(badPng.body.error).toMatch(/png/i);
   });
 
+  test('invalid compose payload with overwrite does not delete stale clips', async () => {
+    const outDir = tmpOutDir();
+    const stalePath = path.join(outDir, '05 - clip.mp4');
+    fs.writeFileSync(stalePath, 'stale');
+    const res = await request(app)
+      .post('/api/export')
+      .send(
+        verticalBody(outDir, {
+          overwrite: true,
+          compose: {
+            video: { x: 0, y: 656, width: 1080 },
+            backgroundPng: 'nonsense',
+            texts: [],
+          },
+        }),
+      );
+    expect(res.status).toBe(400);
+    expect(fs.existsSync(stalePath)).toBe(true);
+  });
+
   test('409 conflicts use the .mp4 extension in vertical mode', async () => {
     const outDir = tmpOutDir();
     fs.writeFileSync(path.join(outDir, '01 - clip.mp4'), 'existing');
