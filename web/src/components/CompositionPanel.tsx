@@ -33,16 +33,25 @@ function startDrag(
 ) {
   e.preventDefault();
   e.stopPropagation();
+  const target = e.currentTarget as Element;
+  target.setPointerCapture(e.pointerId);
   const startX = e.clientX;
   const startY = e.clientY;
   const move = (ev: PointerEvent) =>
     onMove((ev.clientX - startX) / scale, (ev.clientY - startY) / scale);
-  const up = () => {
+  const end = () => {
     window.removeEventListener('pointermove', move);
-    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    try {
+      target.releasePointerCapture(e.pointerId);
+    } catch {
+      // The element may already be gone; nothing to release.
+    }
   };
   window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', up);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
 }
 
 export function CompositionPanel({
