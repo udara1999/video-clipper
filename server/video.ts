@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pipeline } from 'node:stream';
 import { promisify } from 'node:util';
 import { Router } from 'express';
 import ffprobeStatic from 'ffprobe-static';
@@ -80,6 +81,14 @@ const MIME: Record<string, string> = {
   wmv: 'video/x-ms-wmv',
 };
 
+// Client aborts (e.g. a <video> element cancelling a seek) surface as
+// premature-close errors after headers are sent; there is nothing left to
+// tell the client, but pipeline still destroys the source stream so file
+// descriptors are not leaked and 'error' never goes unhandled.
+function streamFile(filePath: string, opts: { start?: number; end?: number } | undefined, res: NodeJS.WritableStream): void {
+  pipeline(fs.createReadStream(filePath, opts), res, () => {});
+}
+
 videoRouter.get('/api/video/stream', (req, res) => {
   const filePath = String(req.query.path ?? '');
   let stat: fs.Stats;
@@ -97,14 +106,24 @@ videoRouter.get('/api/video/stream', (req, res) => {
       'Content-Length': stat.size,
       'Accept-Ranges': 'bytes',
     });
-    fs.createReadStream(filePath).pipe(res);
+    streamFile(filePath, undefined, res);
     return;
   }
 
   const m = /^bytes=(\d*)-(\d*)$/.exec(range);
   if (!m || (m[1] === '' && m[2] === '')) return void res.status(416).end();
-  const start = m[1] === '' ? 0 : Number(m[1]);
-  const end = m[2] === '' ? stat.size - 1 : Math.min(Number(m[2]), stat.size - 1);
+  let start: number;
+  let end: number;
+  if (m[1] === '') {
+    // Suffix range (RFC 7233): bytes=-N means the last N bytes.
+    const suffix = Number(m[2]);
+    if (suffix === 0) return void res.status(416).end();
+    start = Math.max(0, stat.size - suffix);
+    end = stat.size - 1;
+  } else {
+    start = Number(m[1]);
+    end = m[2] === '' ? stat.size - 1 : Math.min(Number(m[2]), stat.size - 1);
+  }
   if (start > end || start >= stat.size) return void res.status(416).end();
 
   res.writeHead(206, {
@@ -113,5 +132,5 @@ videoRouter.get('/api/video/stream', (req, res) => {
     'Content-Range': `bytes ${start}-${end}/${stat.size}`,
     'Accept-Ranges': 'bytes',
   });
-  fs.createReadStream(filePath, { start, end }).pipe(res);
+  streamFile(filePath, { start, end }, res);
 });

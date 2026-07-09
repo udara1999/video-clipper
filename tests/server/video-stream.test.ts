@@ -26,6 +26,42 @@ describe('GET /api/video/stream', () => {
     expect(res.headers['content-range']).toBe(`bytes 0-99/${fs.statSync(fixture).size}`);
     expect(res.headers['accept-ranges']).toBe('bytes');
     expect((res.body as Buffer).length).toBe(100);
+    expect((res.body as Buffer).equals(fs.readFileSync(fixture).subarray(0, 100))).toBe(true);
+  });
+
+  test('serves a suffix range (last N bytes)', async () => {
+    const size = fs.statSync(fixture).size;
+    const res = await request(createApp())
+      .get('/api/video/stream')
+      .query({ path: fixture })
+      .set('Range', 'bytes=-50')
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(res.status).toBe(206);
+    expect(res.headers['content-range']).toBe(`bytes ${size - 50}-${size - 1}/${size}`);
+    expect((res.body as Buffer).length).toBe(50);
+    expect((res.body as Buffer).equals(fs.readFileSync(fixture).subarray(size - 50))).toBe(true);
+  });
+
+  test('suffix range larger than the file serves the whole file', async () => {
+    const size = fs.statSync(fixture).size;
+    const res = await request(createApp())
+      .get('/api/video/stream')
+      .query({ path: fixture })
+      .set('Range', 'bytes=-999999999')
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(res.status).toBe(206);
+    expect(res.headers['content-range']).toBe(`bytes 0-${size - 1}/${size}`);
+    expect((res.body as Buffer).length).toBe(size);
   });
 
   test('serves an open-ended range to EOF', async () => {
@@ -64,6 +100,14 @@ describe('GET /api/video/stream', () => {
       .get('/api/video/stream')
       .query({ path: fixture })
       .set('Range', 'bytes=999999999-');
+    expect(res.status).toBe(416);
+  });
+
+  test('416 when start is greater than end', async () => {
+    const res = await request(createApp())
+      .get('/api/video/stream')
+      .query({ path: fixture })
+      .set('Range', 'bytes=100-50');
     expect(res.status).toBe(416);
   });
 
