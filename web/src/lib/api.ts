@@ -42,3 +42,47 @@ export async function fetchVideoInfo(path: string): Promise<VideoInfo> {
 export function streamUrl(path: string): string {
   return `/api/video/stream?path=${encodeURIComponent(path)}`;
 }
+
+export interface ClipResult {
+  fileName: string;
+  start: number;
+  end: number;
+  duration: number;
+}
+
+export interface ExportJob {
+  id: string;
+  status: 'running' | 'done' | 'error';
+  percent: number;
+  error?: string;
+  stderrTail?: string;
+  results?: ClipResult[];
+  mergedCuts?: number;
+}
+
+export interface ExportRequest {
+  sourcePath: string;
+  splitTimes: number[];
+  outputDir: string;
+  prefix: string;
+  overwrite: boolean;
+}
+
+export async function startExport(
+  req: ExportRequest,
+): Promise<{ jobId?: string; conflicts?: string[] }> {
+  const res = await fetch('/api/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  if (res.status === 409) return { conflicts: (await res.json()).conflicts };
+  if (!res.ok) throw new Error(await readError(res, 'Export failed to start'));
+  return res.json();
+}
+
+export async function getExportJob(id: string): Promise<ExportJob> {
+  const res = await fetch(`/api/export/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(await readError(res, 'Export job not found'));
+  return res.json();
+}

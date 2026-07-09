@@ -4,6 +4,7 @@ import { formatTimestamp } from '../../shared/time';
 import { normalizeSplits } from '../../shared/segments';
 import { SplitEditor } from './components/SplitEditor';
 import { Timeline } from './components/Timeline';
+import { ExportPanel } from './components/ExportPanel';
 
 export default function App() {
   const [video, setVideo] = useState<VideoInfo | null>(null);
@@ -92,6 +93,7 @@ export default function App() {
             onSeek={seek}
           />
           <SplitEditor splits={splits} duration={video.durationSec} onChange={setNormalizedSplits} />
+          <ExportPanel video={video} splits={splits} />
         </>
       )}
     </main>
