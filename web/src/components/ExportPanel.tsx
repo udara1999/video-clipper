@@ -19,6 +19,7 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
   const [prefix, setPrefix] = useState(defaultPrefix(video.fileName));
   const [job, setJob] = useState<ExportJob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setPrefix(defaultPrefix(video.fileName));
@@ -28,14 +29,24 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
 
   useEffect(() => {
     if (!job || job.status !== 'running') return;
+    let cancelled = false;
+    let inFlight = false;
     const timer = setInterval(async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
-        setJob(await getExportJob(job.id));
+        const next = await getExportJob(job.id);
+        if (!cancelled) setJob(next);
       } catch {
         // transient poll failure — keep polling
+      } finally {
+        inFlight = false;
       }
     }, 500);
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [job?.id, job?.status]);
 
   async function chooseFolder() {
@@ -48,7 +59,7 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
     }
   }
 
-  async function doExport(overwrite: boolean) {
+  async function submitExport(overwrite: boolean) {
     if (!outputDir) return;
     setError(null);
     try {
@@ -63,16 +74,31 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
         const ok = window.confirm(
           `These files already exist in the output folder:\n\n${res.conflicts.join('\n')}\n\nOverwrite them?`,
         );
-        if (ok) await doExport(true);
+        if (ok) await submitExport(true);
         return;
       }
-      setJob({ id: res.jobId!, status: 'running', percent: 0 });
+      if (!res.jobId) {
+        setError('Export did not return a job id');
+        return;
+      }
+      setJob({ id: res.jobId, status: 'running', percent: 0 });
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
-  const canExport = splits.length > 0 && outputDir !== null && job?.status !== 'running';
+  async function doExport(overwrite: boolean) {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await submitExport(overwrite);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const canExport =
+    splits.length > 0 && outputDir !== null && job?.status !== 'running' && !submitting;
 
   return (
     <section>
