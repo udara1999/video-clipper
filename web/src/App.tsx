@@ -6,6 +6,7 @@ import { SplitEditor } from './components/SplitEditor';
 import { Timeline } from './components/Timeline';
 import { ExportPanel } from './components/ExportPanel';
 import { CompositionPanel, type Selection } from './components/CompositionPanel';
+import { PropertiesPanel } from './components/PropertiesPanel';
 import { defaultVideoPlacement, type ComposeLayout } from '../../shared/compose';
 
 export default function App() {
@@ -150,6 +151,17 @@ export default function App() {
               />
             </div>
             <aside className="side-col">
+              {mode === 'vertical' && (
+                <div className="panel">
+                  <PropertiesPanel
+                    layout={layout}
+                    onLayoutChange={setLayout}
+                    selection={selection}
+                    onSelect={setSelection}
+                    clipCount={splits.length + 1}
+                  />
+                </div>
+              )}
               <div className="panel">
                 <SplitEditor splits={splits} duration={video.durationSec} onChange={setNormalizedSplits} />
               </div>
