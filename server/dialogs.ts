@@ -6,24 +6,41 @@ export interface DialogCommand {
   args: string[];
 }
 
-export function fileDialogCommand(platform: string): DialogCommand {
+export function fileDialogCommand(
+  platform: string,
+  kind: 'video' | 'image' = 'video',
+): DialogCommand {
   if (platform === 'darwin') {
+    if (kind === 'image') {
+      return {
+        cmd: 'osascript',
+        args: [
+          '-e',
+          'POSIX path of (choose file with prompt "Choose a background image" of type {"public.image"})',
+        ],
+      };
+    }
     return {
       cmd: 'osascript',
       args: ['-e', 'POSIX path of (choose file with prompt "Choose a video to split")'],
     };
   }
   if (platform === 'win32') {
+    const filter =
+      kind === 'image'
+        ? "Image files|*.png;*.jpg;*.jpeg;*.webp;*.bmp|All files|*.*"
+        : "Video files|*.mp4;*.m4v;*.mov;*.mkv;*.webm;*.avi;*.wmv;*.ts;*.mts|All files|*.*";
+    const title = kind === 'image' ? 'Choose a background image' : 'Choose a video to split';
     return {
       cmd: 'powershell',
       args: [
         '-NoProfile',
         '-STA',
         '-Command',
-        "Add-Type -AssemblyName System.Windows.Forms; " +
-          "$d = New-Object System.Windows.Forms.OpenFileDialog; " +
-          "$d.Title = 'Choose a video to split'; " +
-          "$d.Filter = 'Video files|*.mp4;*.m4v;*.mov;*.mkv;*.webm;*.avi;*.wmv;*.ts;*.mts|All files|*.*'; " +
+        'Add-Type -AssemblyName System.Windows.Forms; ' +
+          '$d = New-Object System.Windows.Forms.OpenFileDialog; ' +
+          `$d.Title = '${title}'; ` +
+          `$d.Filter = '${filter}'; ` +
           "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }",
       ],
     };
@@ -97,9 +114,10 @@ export function runDialog(command: DialogCommand): Promise<string | null> {
 
 export const dialogRouter = Router();
 
-dialogRouter.post('/api/dialog/file', async (_req, res) => {
+dialogRouter.post('/api/dialog/file', async (req, res) => {
+  const kind = req.body?.kind === 'image' ? 'image' : 'video';
   try {
-    res.json({ path: await runDialog(fileDialogCommand(process.platform)) });
+    res.json({ path: await runDialog(fileDialogCommand(process.platform, kind)) });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

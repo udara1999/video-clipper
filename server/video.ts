@@ -79,6 +79,11 @@ const MIME: Record<string, string> = {
   avi: 'video/x-msvideo',
   ts: 'video/mp2t',
   wmv: 'video/x-ms-wmv',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
 };
 
 // Client aborts (e.g. a <video> element cancelling a seek) surface as

@@ -39,6 +39,22 @@ describe('folderDialogCommand', () => {
   });
 });
 
+describe('fileDialogCommand image kind', () => {
+  test('macOS image picker restricts to images', () => {
+    const c = fileDialogCommand('darwin', 'image');
+    expect(c.args.join(' ')).toContain('public.image');
+    expect(c.args.join(' ')).toContain('background image');
+  });
+  test('Windows image picker filters image extensions', () => {
+    const c = fileDialogCommand('win32', 'image');
+    expect(c.args.join(' ')).toContain('*.png');
+  });
+  test('defaults to the video picker', () => {
+    const c = fileDialogCommand('darwin');
+    expect(c.args.join(' ')).toContain('video');
+  });
+});
+
 describe('runDialog', () => {
   test('resolves trimmed stdout on success', async () => {
     await expect(

@@ -13,6 +13,7 @@ import {
 } from '../shared/naming';
 import { createJob, getJob, type ClipResult, type ExportJob } from './jobs';
 import { ffprobeJson, getVideoInfo } from './video';
+import { startComposeExport, validateComposeInput } from './compose';
 
 export { getJob };
 export type { ClipResult, ExportJob };
@@ -181,7 +182,8 @@ exportRouter.post('/api/export', async (req, res) => {
         ? body.prefix
         : defaultPrefix(path.basename(sourcePath)),
     );
-    const ext = sourceExtension(sourcePath);
+    const mode = body.mode === 'vertical' ? 'vertical' : 'lossless';
+    const ext = mode === 'vertical' ? 'mp4' : sourceExtension(sourcePath);
     const count = splits.length + 1;
 
     const conflicts = checkConflicts(outputDir, count, prefix, ext);
@@ -195,6 +197,19 @@ exportRouter.post('/api/export', async (req, res) => {
       for (const name of staleClips) {
         fs.unlinkSync(path.join(outputDir, name));
       }
+    }
+
+    if (mode === 'vertical') {
+      const parsed = validateComposeInput(body, count);
+      if (!parsed.ok) return void res.status(400).json({ error: parsed.error });
+      const jobId = startComposeExport({
+        sourcePath,
+        bounds: [0, ...splits, info.durationSec],
+        outputDir,
+        prefix,
+        compose: parsed.value,
+      });
+      return void res.json({ jobId });
     }
 
     const jobId = startExport({
