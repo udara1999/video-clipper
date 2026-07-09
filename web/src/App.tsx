@@ -1,9 +1,14 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchVideoInfo, pickFile, streamUrl, type VideoInfo } from './lib/api';
 import { formatTimestamp } from '../../shared/time';
+import { normalizeSplits } from '../../shared/segments';
+import { SplitEditor } from './components/SplitEditor';
+import { Timeline } from './components/Timeline';
 
 export default function App() {
   const [video, setVideo] = useState<VideoInfo | null>(null);
+  const [splits, setSplits] = useState<number[]>([]);
+  const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -12,10 +17,44 @@ export default function App() {
     try {
       const path = await pickFile();
       if (path === null) return; // user cancelled
-      setVideo(await fetchVideoInfo(path));
+      const info = await fetchVideoInfo(path);
+      setVideo(info);
+      setSplits([]);
+      setCurrentTime(0);
     } catch (err) {
       setError((err as Error).message);
     }
+  }
+
+  const setNormalizedSplits = useCallback(
+    (next: number[]) => {
+      if (!video) return;
+      setSplits(normalizeSplits(next, video.durationSec));
+    },
+    [video],
+  );
+
+  const splitHere = useCallback(() => {
+    const el = videoRef.current;
+    if (!el || !video) return;
+    setSplits((prev) => normalizeSplits([...prev, el.currentTime], video.durationSec));
+  }, [video]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key.toLowerCase() !== 's' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      splitHere();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [splitHere]);
+
+  function seek(t: number) {
+    const el = videoRef.current;
+    if (el) el.currentTime = t;
   }
 
   return (
@@ -35,7 +74,24 @@ export default function App() {
               manually below and export losslessly.
             </p>
           )}
-          <video ref={videoRef} src={streamUrl(video.path)} controls className="player" />
+          <video
+            ref={videoRef}
+            src={streamUrl(video.path)}
+            controls
+            className="player"
+            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          />
+          <div className="split-controls">
+            <button onClick={splitHere}>Split here (S)</button>
+            <span>at {formatTimestamp(currentTime)}</span>
+          </div>
+          <Timeline
+            duration={video.durationSec}
+            splits={splits}
+            onRemoveSplit={(t) => setNormalizedSplits(splits.filter((x) => x !== t))}
+            onSeek={seek}
+          />
+          <SplitEditor splits={splits} duration={video.durationSec} onChange={setNormalizedSplits} />
         </>
       )}
     </main>
