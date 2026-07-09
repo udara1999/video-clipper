@@ -64,6 +64,8 @@ export interface ExportJob {
   stderrTail?: string;
   results?: ClipResult[];
   mergedCuts?: number;
+  clipIndex?: number;
+  clipCount?: number;
 }
 
 export interface ExportRequest {
@@ -72,6 +74,8 @@ export interface ExportRequest {
   outputDir: string;
   prefix: string;
   overwrite: boolean;
+  mode?: 'lossless' | 'vertical';
+  compose?: import('./bake').BakedComposition;
 }
 
 export async function startExport(

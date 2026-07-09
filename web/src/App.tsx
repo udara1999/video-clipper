@@ -166,7 +166,7 @@ export default function App() {
                 <SplitEditor splits={splits} duration={video.durationSec} onChange={setNormalizedSplits} />
               </div>
               <div className="panel">
-                <ExportPanel video={video} splits={splits} />
+                <ExportPanel video={video} splits={splits} mode={mode} layout={layout} />
               </div>
             </aside>
           </div>

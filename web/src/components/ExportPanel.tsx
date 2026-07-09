@@ -8,13 +8,17 @@ import {
 } from '../lib/api';
 import { defaultPrefix } from '../../../shared/naming';
 import { formatTimestamp } from '../../../shared/time';
+import { bakeComposition, type BakedComposition } from '../lib/bake';
+import type { ComposeLayout } from '../../../shared/compose';
 
 interface ExportPanelProps {
   video: VideoInfo;
   splits: number[];
+  mode: 'lossless' | 'vertical';
+  layout: ComposeLayout;
 }
 
-export function ExportPanel({ video, splits }: ExportPanelProps) {
+export function ExportPanel({ video, splits, mode, layout }: ExportPanelProps) {
   const [outputDir, setOutputDir] = useState<string | null>(null);
   const [prefix, setPrefix] = useState(defaultPrefix(video.fileName));
   const [job, setJob] = useState<ExportJob | null>(null);
@@ -23,8 +27,8 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
 
   useEffect(() => {
     setPrefix(defaultPrefix(video.fileName));
-    setJob(null);
     setError(null);
+    setJob((prev) => (prev && prev.status === 'running' ? prev : null));
   }, [video.path, video.fileName]);
 
   useEffect(() => {
@@ -59,7 +63,7 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
     }
   }
 
-  async function submitExport(overwrite: boolean) {
+  async function submitExport(overwrite: boolean, compose?: BakedComposition) {
     if (!outputDir) return;
     setError(null);
     try {
@@ -69,12 +73,14 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
         outputDir,
         prefix,
         overwrite,
+        mode,
+        ...(mode === 'vertical' && compose && { compose }),
       });
       if (res.conflicts) {
         const ok = window.confirm(
           `These files already exist in the output folder:\n\n${res.conflicts.join('\n')}\n\nOverwrite them?`,
         );
-        if (ok) await submitExport(true);
+        if (ok) await submitExport(true, compose);
         return;
       }
       if (!res.jobId) {
@@ -91,7 +97,13 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await submitExport(overwrite);
+      let compose: BakedComposition | undefined;
+      if (mode === 'vertical') {
+        compose = await bakeComposition(layout, splits.length + 1);
+      }
+      await submitExport(overwrite, compose);
+    } catch (err) {
+      setError((err as Error).message); // bake failure (e.g. unreadable background image)
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +126,7 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
         </label>
       </div>
       <button className="export-button" disabled={!canExport} onClick={() => doExport(false)}>
-        Export {splits.length + 1} clips
+        Export {splits.length + 1} clips{mode === 'vertical' ? ' (9:16 MP4)' : ''}
       </button>
       {splits.length === 0 && <p className="notice">Add at least one split point to export.</p>}
       {error && <p className="error">{error}</p>}
@@ -123,7 +135,10 @@ export function ExportPanel({ video, splits }: ExportPanelProps) {
           <div className="progress-track">
             <div className="progress-bar" style={{ width: `${job.percent}%` }} />
           </div>
-          <span>{Math.round(job.percent)}%</span>
+          <span>
+            {job.clipCount ? `Clip ${job.clipIndex ?? 1} of ${job.clipCount} · ` : ''}
+            {Math.round(job.percent)}%
+          </span>
         </div>
       )}
       {job?.status === 'error' && (
