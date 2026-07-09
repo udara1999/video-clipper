@@ -1,6 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dialogRouter } from './dialogs';
+import { videoRouter } from './video';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 
@@ -13,6 +14,7 @@ export function createApp() {
   });
 
   app.use(dialogRouter);
+  app.use(videoRouter);
   app.use(express.static(distDir));
   return app;
 }
