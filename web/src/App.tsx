@@ -5,6 +5,8 @@ import { normalizeSplits } from '../../shared/segments';
 import { SplitEditor } from './components/SplitEditor';
 import { Timeline } from './components/Timeline';
 import { ExportPanel } from './components/ExportPanel';
+import { CompositionPanel, type Selection } from './components/CompositionPanel';
+import { defaultVideoPlacement, type ComposeLayout } from '../../shared/compose';
 
 export default function App() {
   const [video, setVideo] = useState<VideoInfo | null>(null);
@@ -12,6 +14,21 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [mode, setMode] = useState<'lossless' | 'vertical'>('lossless');
+  const [layout, setLayout] = useState<ComposeLayout>({
+    video: defaultVideoPlacement(16, 9),
+    background: null,
+    texts: [],
+  });
+  const [selection, setSelection] = useState<Selection>(null);
+
+  function switchMode(next: 'lossless' | 'vertical') {
+    const t = videoRef.current?.currentTime ?? currentTime;
+    setMode(next);
+    requestAnimationFrame(() => {
+      if (videoRef.current) videoRef.current.currentTime = t;
+    });
+  }
 
   async function chooseVideo() {
     setError(null);
@@ -21,6 +38,12 @@ export default function App() {
       const info = await fetchVideoInfo(path);
       setVideo(info);
       setSplits([]);
+      setLayout({
+        video: defaultVideoPlacement(info.width || 16, info.height || 9),
+        background: null,
+        texts: [],
+      });
+      setSelection(null);
       setCurrentTime(0);
     } catch (err) {
       setError((err as Error).message);
@@ -82,13 +105,39 @@ export default function App() {
           )}
           <div className="workspace">
             <div className="stage-col">
-              <video
-                ref={videoRef}
-                src={streamUrl(video.path)}
-                controls
-                className="player"
-                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-              />
+              <div className="mode-toggle">
+                <button
+                  className={mode === 'lossless' ? 'active' : ''}
+                  onClick={() => switchMode('lossless')}
+                >
+                  Lossless split
+                </button>
+                <button
+                  className={mode === 'vertical' ? 'active' : ''}
+                  onClick={() => switchMode('vertical')}
+                >
+                  Vertical 9:16
+                </button>
+              </div>
+              {mode === 'lossless' ? (
+                <video
+                  ref={videoRef}
+                  src={streamUrl(video.path)}
+                  controls
+                  className="player"
+                  onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                />
+              ) : (
+                <CompositionPanel
+                  video={video}
+                  videoRef={videoRef}
+                  layout={layout}
+                  onLayoutChange={setLayout}
+                  selection={selection}
+                  onSelect={setSelection}
+                  onTimeUpdate={setCurrentTime}
+                />
+              )}
               <div className="split-controls">
                 <button onClick={splitHere}>Split here (S)</button>
                 <span>at {formatTimestamp(currentTime)}</span>
