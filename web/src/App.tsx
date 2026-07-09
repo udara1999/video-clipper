@@ -42,7 +42,7 @@ export default function App() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key.toLowerCase() !== 's' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.toLowerCase() !== 's' || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
       e.preventDefault();
