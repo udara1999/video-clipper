@@ -1,0 +1,21 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.error {
+  color: #c0392b;
+}
+.notice {
+  color: #8a6d00;
+  background: rgba(255, 200, 0, 0.15);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
