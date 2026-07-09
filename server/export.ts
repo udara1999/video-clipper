@@ -46,6 +46,23 @@ export function checkConflicts(outputDir: string, count: number, prefix: string,
   return conflicts;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Finds leftover numbered clips from a previous, larger export (e.g. re-exporting
+// 3 clips after a prior 5-clip export leaves "04 - clip.mp4" and "05 - clip.mp4"
+// behind, which would otherwise sort into the new sequence).
+export function findStaleClips(outputDir: string, count: number, prefix: string, ext: string): string[] {
+  const re = new RegExp(`^(\\d+) - ${escapeRegExp(prefix)}\\.${escapeRegExp(ext)}$`);
+  const stale: string[] = [];
+  for (const name of fs.readdirSync(outputDir)) {
+    const m = re.exec(name);
+    if (m && Number(m[1]) > count) stale.push(name);
+  }
+  return stale;
+}
+
 interface StartOptions {
   sourcePath: string;
   splits: number[];
@@ -61,7 +78,14 @@ function startExport(opts: StartOptions): string {
   jobs.set(id, job);
 
   const count = opts.splits.length + 1;
-  const pattern = path.join(opts.outputDir, segmentPattern(count, opts.prefix, opts.ext));
+  // Only the ffmpeg pattern argument needs the output dir escaped: ffmpeg's
+  // segment muxer treats "%" as a strftime/printf token, so a literal "%" in
+  // the folder path would corrupt the generated filenames. fs operations
+  // elsewhere use opts.outputDir unescaped, since those take a real path.
+  const pattern = path.join(
+    opts.outputDir.replace(/%/g, '%%'),
+    segmentPattern(count, opts.prefix, opts.ext),
+  );
   const args = [
     '-hide_banner',
     '-nostdin',
@@ -182,8 +206,16 @@ exportRouter.post('/api/export', async (req, res) => {
     const count = splits.length + 1;
 
     const conflicts = checkConflicts(outputDir, count, prefix, ext);
-    if (conflicts.length > 0 && overwrite !== true) {
-      return void res.status(409).json({ conflicts });
+    const staleClips = findStaleClips(outputDir, count, prefix, ext);
+    if (overwrite !== true) {
+      const allConflicts = [...conflicts, ...staleClips];
+      if (allConflicts.length > 0) {
+        return void res.status(409).json({ conflicts: allConflicts });
+      }
+    } else {
+      for (const name of staleClips) {
+        fs.unlinkSync(path.join(outputDir, name));
+      }
     }
 
     const jobId = startExport({
