@@ -68,3 +68,50 @@ videoRouter.get('/api/video/info', async (req, res) => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+const MIME: Record<string, string> = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+  mkv: 'video/x-matroska',
+  avi: 'video/x-msvideo',
+  ts: 'video/mp2t',
+  wmv: 'video/x-ms-wmv',
+};
+
+videoRouter.get('/api/video/stream', (req, res) => {
+  const filePath = String(req.query.path ?? '');
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    return void res.status(404).json({ error: 'File not found' });
+  }
+  const type = MIME[sourceExtension(filePath).toLowerCase()] ?? 'application/octet-stream';
+  const range = req.headers.range;
+
+  if (!range) {
+    res.writeHead(200, {
+      'Content-Type': type,
+      'Content-Length': stat.size,
+      'Accept-Ranges': 'bytes',
+    });
+    fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+  if (!m || (m[1] === '' && m[2] === '')) return void res.status(416).end();
+  const start = m[1] === '' ? 0 : Number(m[1]);
+  const end = m[2] === '' ? stat.size - 1 : Math.min(Number(m[2]), stat.size - 1);
+  if (start > end || start >= stat.size) return void res.status(416).end();
+
+  res.writeHead(206, {
+    'Content-Type': type,
+    'Content-Length': end - start + 1,
+    'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+    'Accept-Ranges': 'bytes',
+  });
+  fs.createReadStream(filePath, { start, end }).pipe(res);
+});
