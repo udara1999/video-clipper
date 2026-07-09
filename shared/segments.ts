@@ -5,7 +5,7 @@ export interface Segment {
   duration: number;
 }
 
-const EPSILON = 0.01;
+export const EPSILON = 0.01;
 
 export function normalizeSplits(times: number[], duration: number): number[] {
   const valid = times

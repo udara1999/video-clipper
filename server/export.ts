@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
 import ffmpegPath from 'ffmpeg-static';
-import { normalizeSplits } from '../shared/segments';
+import { EPSILON, normalizeSplits } from '../shared/segments';
 import {
   clipFileName,
   defaultPrefix,
@@ -130,7 +130,11 @@ async function collectResults(outputDir: string, count: number, prefix: string, 
     if (!fs.existsSync(full)) continue;
     const probe = await ffprobeJson(full);
     const duration = Number(probe.format?.duration ?? 0);
-    if (duration < 0.05) {
+    // Invariant: a truly merged segment has zero frames (duration ~ 0), while any
+    // real clip is at least one frame long — so the same EPSILON that separates
+    // distinct split times safely identifies merged leftovers without ever
+    // deleting a genuine ~1-frame clip.
+    if (duration < EPSILON) {
       fs.unlinkSync(full);
       continue;
     }

@@ -163,4 +163,28 @@ describe('POST /api/export', () => {
     const res = await request(app).get('/api/export/does-not-exist');
     expect(res.status).toBe(404);
   });
+
+  test('job errors with stderr tail when ffmpeg cannot write its output', async () => {
+    // Read-only output dir: the request passes validation and the conflict
+    // check (both only read), but ffmpeg fails to open the segment file.
+    const outDir = tmpOutDir();
+    fs.chmodSync(outDir, 0o555);
+    try {
+      const res = await request(app).post('/api/export').send({
+        sourcePath: fixture,
+        splitTimes: [5],
+        outputDir: outDir,
+        prefix: 'clip',
+        overwrite: false,
+      });
+      expect(res.status).toBe(200);
+      const job = await waitForJob(res.body.jobId);
+      expect(job.status).toBe('error');
+      expect(job.error).toMatch(/ffmpeg exited with code/i);
+      expect(typeof job.stderrTail).toBe('string');
+      expect(job.stderrTail.length).toBeGreaterThan(0);
+    } finally {
+      fs.chmodSync(outDir, 0o755);
+    }
+  });
 });
