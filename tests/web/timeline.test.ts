@@ -87,6 +87,12 @@ describe('zoomAroundPoint', () => {
     const inMax = zoomAroundPoint({ zoom: max, scrollLeft: 100 }, 2, 450, 3600, 900);
     expect(inMax.zoom).toBe(max);
   });
+  test('degenerate duration returns the fit state instead of NaN', () => {
+    expect(zoomAroundPoint({ zoom: 2, scrollLeft: 100 }, 1.5, 450, 0, 900)).toEqual({
+      zoom: 1,
+      scrollLeft: 0,
+    });
+  });
 });
 
 describe('clampSplitTime', () => {

@@ -58,6 +58,9 @@ export function zoomAroundPoint(
   duration: number,
   containerWidth: number,
 ): { zoom: number; scrollLeft: number } {
+  if (duration <= 0 || containerWidth <= 0) {
+    return { zoom: 1, scrollLeft: 0 };
+  }
   const zoom = clampZoom(state.zoom * factor, duration, containerWidth);
   const anchor = timeAtPoint(cursorX, state.scrollLeft, state.zoom, duration, containerWidth);
   const trackWidth = containerWidth * zoom;
