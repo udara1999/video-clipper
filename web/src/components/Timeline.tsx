@@ -31,6 +31,7 @@ export function Timeline({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
+  const pendingScrollRef = useRef<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   // While dragging: which split is held and where it currently sits.
   const [drag, setDrag] = useState<{ origin: number; current: number } | null>(null);
@@ -56,13 +57,13 @@ export function Timeline({
       const cursorX = e.clientX - rect.left;
       const factor = e.deltaY < 0 ? 1.25 : 0.8;
       const next = zoomAroundPoint(
-        { zoom: zoomRef.current, scrollLeft: el.scrollLeft },
+        { zoom: zoomRef.current, scrollLeft: pendingScrollRef.current ?? el.scrollLeft },
         factor,
         cursorX,
         duration,
         el.clientWidth,
       );
-      el.scrollLeft = next.scrollLeft;
+      pendingScrollRef.current = next.scrollLeft;
       zoomRef.current = next.zoom;
       setZoom(next.zoom);
     };
@@ -70,24 +71,33 @@ export function Timeline({
     return () => el.removeEventListener('wheel', onWheel);
   }, [duration]);
 
+  // Apply the computed scroll only after the track has re-rendered at the new
+  // width — writing it earlier gets clamped against the old track width.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el && pendingScrollRef.current !== null) {
+      el.scrollLeft = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+    }
+  }, [zoom]);
+
   function zoomByButton(factor: number) {
     const el = scrollRef.current;
     if (!el || duration <= 0) return;
     const next = zoomAroundPoint(
-      { zoom: zoomRef.current, scrollLeft: el.scrollLeft },
+      { zoom: zoomRef.current, scrollLeft: pendingScrollRef.current ?? el.scrollLeft },
       factor,
       el.clientWidth / 2,
       duration,
       el.clientWidth,
     );
-    el.scrollLeft = next.scrollLeft;
+    pendingScrollRef.current = next.scrollLeft;
     zoomRef.current = next.zoom;
     setZoom(next.zoom);
   }
 
   function fit() {
-    const el = scrollRef.current;
-    if (el) el.scrollLeft = 0;
+    pendingScrollRef.current = 0;
     zoomRef.current = 1;
     setZoom(1);
   }
