@@ -145,8 +145,12 @@ export default function App() {
               <Timeline
                 duration={video.durationSec}
                 splits={splits}
-                onRemoveSplit={(t) => setNormalizedSplits(splits.filter((x) => x !== t))}
+                currentTime={currentTime}
                 onSeek={seek}
+                onMoveSplit={(oldT, newT) =>
+                  setNormalizedSplits([...splits.filter((x) => x !== oldT), newT])
+                }
+                onRemoveSplit={(t) => setNormalizedSplits(splits.filter((x) => x !== t))}
               />
             </div>
             <aside className="side-col">
