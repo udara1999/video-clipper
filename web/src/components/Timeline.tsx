@@ -63,6 +63,12 @@ export function Timeline({
         duration,
         el.clientWidth,
       );
+      if (next.zoom === zoomRef.current) {
+        // Track width isn't changing — apply directly and drop any stale pending.
+        el.scrollLeft = next.scrollLeft;
+        pendingScrollRef.current = null;
+        return;
+      }
       pendingScrollRef.current = next.scrollLeft;
       zoomRef.current = next.zoom;
       setZoom(next.zoom);
@@ -91,6 +97,12 @@ export function Timeline({
       duration,
       el.clientWidth,
     );
+    if (next.zoom === zoomRef.current) {
+      // Track width isn't changing — apply directly and drop any stale pending.
+      el.scrollLeft = next.scrollLeft;
+      pendingScrollRef.current = null;
+      return;
+    }
     pendingScrollRef.current = next.scrollLeft;
     zoomRef.current = next.zoom;
     setZoom(next.zoom);
