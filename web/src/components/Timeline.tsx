@@ -6,10 +6,12 @@ import {
   clampZoom,
   pickTickStep,
   timeAtPoint,
+  visibleTickRange,
   zoomAroundPoint,
 } from '../lib/timeline';
 
 const DRAG_THRESHOLD_PX = 3;
+const TICK_OVERSCAN_PX = 300;
 
 interface TimelineProps {
   duration: number;
@@ -33,6 +35,8 @@ export function Timeline({
   const zoomRef = useRef(1);
   const pendingScrollRef = useRef<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  // Mirrors el.scrollLeft so the virtualized ruler re-renders while panning.
+  const [scrollX, setScrollX] = useState(0);
   // While dragging: which split is held and where it currently sits.
   const [drag, setDrag] = useState<{ origin: number; current: number } | null>(null);
 
@@ -43,7 +47,12 @@ export function Timeline({
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    const onScroll = () => setScrollX(el.scrollLeft);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', onScroll);
+    };
   }, []);
 
   // Wheel zoom must preventDefault, which needs a non-passive listener.
@@ -85,6 +94,7 @@ export function Timeline({
     zoomRef.current = 1;
     pendingScrollRef.current = null;
     setZoom(1);
+    setScrollX(0);
     const el = scrollRef.current;
     if (el) el.scrollLeft = 0;
   }, [duration]);
@@ -187,11 +197,25 @@ export function Timeline({
   const segments = computeSegments(liveSplits, duration);
 
   const effectiveWidth = containerWidth || 1;
-  const trackWidth = effectiveWidth * clampZoom(zoom, duration, effectiveWidth);
+  const effectiveZoom = clampZoom(zoom, duration, effectiveWidth);
+  const trackWidth = effectiveWidth * effectiveZoom;
   const secondsPerPixel = duration > 0 ? duration / trackWidth : 1;
   const tickStep = pickTickStep(secondsPerPixel);
+  // Virtualized ruler: only ticks inside the scroll window get DOM nodes —
+  // at deep zoom a long video would otherwise render tens of thousands.
+  const tickRange = visibleTickRange(
+    scrollX,
+    effectiveWidth,
+    effectiveZoom,
+    duration,
+    tickStep,
+    TICK_OVERSCAN_PX,
+  );
   const ticks: number[] = [];
-  for (let t = 0; t <= duration; t += tickStep) ticks.push(t);
+  for (let i = tickRange.first; i <= tickRange.last; i++) {
+    const t = i * tickStep;
+    if (t <= duration) ticks.push(t);
+  }
 
   const pct = (t: number) => (duration > 0 ? (t / duration) * 100 : 0);
 

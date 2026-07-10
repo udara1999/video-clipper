@@ -1,8 +1,8 @@
 import { EPSILON } from '../../../shared/segments';
 
-export const MAX_PPS = 200; // px per second at maximum zoom
+export const MAX_PPS = 1000; // px per second at maximum zoom (~33px per 30fps frame)
 export const MIN_LABEL_SPACING_PX = 70;
-export const TICK_STEPS = [1, 5, 15, 30, 60, 300, 900, 3600];
+export const TICK_STEPS = [0.1, 0.25, 0.5, 1, 5, 15, 30, 60, 300, 900, 3600];
 
 export function pickTickStep(secondsPerPixel: number): number {
   for (const step of TICK_STEPS) {
@@ -72,4 +72,27 @@ export function zoomAroundPoint(
 export function clampSplitTime(t: number, duration: number): number {
   const inset = 2 * EPSILON;
   return Math.min(Math.max(t, inset), duration - inset);
+}
+
+// Ruler virtualization: at deep zoom a long video would need tens of thousands
+// of tick nodes; only the ticks inside the scroll window (plus overscan) are
+// rendered. Returns an inclusive index range; tick i sits at time i * tickStep.
+export function visibleTickRange(
+  scrollLeft: number,
+  containerWidth: number,
+  zoom: number,
+  duration: number,
+  tickStep: number,
+  overscanPx: number,
+): { first: number; last: number } {
+  const lastIndex = duration > 0 && tickStep > 0 ? Math.floor(duration / tickStep) : 0;
+  if (duration <= 0 || containerWidth <= 0 || tickStep <= 0) {
+    return { first: 0, last: lastIndex };
+  }
+  const pxPerSecond = (containerWidth * zoom) / duration;
+  const startTime = (scrollLeft - overscanPx) / pxPerSecond;
+  const endTime = (scrollLeft + containerWidth + overscanPx) / pxPerSecond;
+  const first = Math.min(Math.max(Math.floor(startTime / tickStep), 0), lastIndex);
+  const last = Math.min(Math.max(Math.ceil(endTime / tickStep), first), lastIndex);
+  return { first, last };
 }

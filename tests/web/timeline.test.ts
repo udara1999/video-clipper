@@ -9,6 +9,7 @@ import {
   pickTickStep,
   pointAtTime,
   timeAtPoint,
+  visibleTickRange,
   zoomAroundPoint,
 } from '../../web/src/lib/timeline';
 import { EPSILON } from '../../shared/segments';
@@ -22,22 +23,57 @@ describe('pickTickStep', () => {
     // 0.2 s per px: 1s = 5px, 5s = 25px, 15s = 75px → 15s
     expect(pickTickStep(0.2)).toBe(15);
   });
+  test('picks sub-second steps at deep zoom', () => {
+    // 0.001 s per px (1000 px/s): 0.1s tick = 100px spacing → 0.1s
+    expect(pickTickStep(0.001)).toBe(0.1);
+    // 0.004 s per px (250 px/s): 0.1s = 25px, 0.25s = 62.5px, 0.5s = 125px → 0.5s
+    expect(pickTickStep(0.004)).toBe(0.5);
+  });
   test('falls back to the largest step when even 1h labels are cramped', () => {
     expect(pickTickStep(600)).toBe(3600);
   });
 });
 
 describe('maxZoom / clampZoom', () => {
+  test('MAX_PPS is 1000 for frame-level placement', () => {
+    expect(MAX_PPS).toBe(1000);
+  });
   test('long video: max zoom reaches MAX_PPS', () => {
-    // 3600s video in a 900px container: fit pps = 0.25; maxZoom = 200*3600/900 = 800
+    // 3600s video in a 900px container: fit pps = 0.25; maxZoom = 1000*3600/900 = 4000
     expect(maxZoom(3600, 900)).toBe((MAX_PPS * 3600) / 900);
-    expect(clampZoom(10_000, 3600, 900)).toBe(800);
+    expect(clampZoom(10_000, 3600, 900)).toBe(4000);
     expect(clampZoom(0.5, 3600, 900)).toBe(1);
   });
   test('short video where fit already exceeds MAX_PPS: max zoom is 1', () => {
-    // 2s video in 900px: fit pps = 450 > 200 → maxZoom 1
-    expect(maxZoom(2, 900)).toBe(1);
-    expect(clampZoom(3, 2, 900)).toBe(1);
+    // 0.5s video in 900px: fit pps = 1800 > 1000 → maxZoom 1
+    expect(maxZoom(0.5, 900)).toBe(1);
+    expect(clampZoom(3, 0.5, 900)).toBe(1);
+  });
+});
+
+describe('visibleTickRange', () => {
+  test('returns only the tick indices inside the scroll window plus overscan', () => {
+    // 3600s at zoom 4000 in 900px: track = 3.6M px, 0.1s step = 100px per tick.
+    // Window [100000, 100900] with 200px overscan → times [99.8s, 101.1s].
+    const r = visibleTickRange(100_000, 900, 4000, 3600, 0.1, 200);
+    // Must cover the window [99.8s, 101.1s] (float rounding may widen by one tick).
+    expect(r.first).toBeLessThanOrEqual(Math.floor(99_800 / 100));
+    expect(r.last).toBeGreaterThanOrEqual(Math.ceil(101_100 / 100));
+    // Well under the full 36k ticks.
+    expect(r.last - r.first).toBeLessThan(30);
+  });
+  test('clamps to the valid tick index range', () => {
+    const r = visibleTickRange(0, 900, 1, 60, 5, 200);
+    expect(r.first).toBe(0);
+    expect(r.last).toBe(12); // 60 / 5
+    const end = visibleTickRange(1e9, 900, 1, 60, 5, 200);
+    expect(end.last).toBe(12);
+    expect(end.first).toBeLessThanOrEqual(end.last);
+  });
+  test('degenerate inputs yield an empty-ish range', () => {
+    const r = visibleTickRange(0, 900, 1, 0, 1, 200);
+    expect(r.first).toBe(0);
+    expect(r.last).toBe(0);
   });
 });
 
