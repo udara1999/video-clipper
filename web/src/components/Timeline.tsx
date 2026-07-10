@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { computeSegments } from '../../../shared/segments';
 import { formatTimestamp } from '../../../shared/time';
 import {
@@ -63,15 +63,7 @@ export function Timeline({
         duration,
         el.clientWidth,
       );
-      if (next.zoom === zoomRef.current) {
-        // Track width isn't changing — apply directly and drop any stale pending.
-        el.scrollLeft = next.scrollLeft;
-        pendingScrollRef.current = null;
-        return;
-      }
-      pendingScrollRef.current = next.scrollLeft;
-      zoomRef.current = next.zoom;
-      setZoom(next.zoom);
+      applyZoom(el, next);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -87,6 +79,32 @@ export function Timeline({
     }
   }, [zoom]);
 
+  // A new video means a new time scale: reset to Fit so stale zoom from the
+  // previous video can't map pointer positions through a phantom track width.
+  useEffect(() => {
+    zoomRef.current = 1;
+    pendingScrollRef.current = null;
+    setZoom(1);
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = 0;
+  }, [duration]);
+
+  function applyZoom(el: HTMLDivElement, next: { zoom: number; scrollLeft: number }) {
+    if (next.zoom === zoomRef.current) {
+      if (pendingScrollRef.current !== null) {
+        // A real zoom change is still awaiting commit — update its target instead
+        // of writing against the stale track width.
+        pendingScrollRef.current = next.scrollLeft;
+      } else {
+        el.scrollLeft = next.scrollLeft;
+      }
+      return;
+    }
+    pendingScrollRef.current = next.scrollLeft;
+    zoomRef.current = next.zoom;
+    setZoom(next.zoom);
+  }
+
   function zoomByButton(factor: number) {
     const el = scrollRef.current;
     if (!el || duration <= 0) return;
@@ -97,15 +115,7 @@ export function Timeline({
       duration,
       el.clientWidth,
     );
-    if (next.zoom === zoomRef.current) {
-      // Track width isn't changing — apply directly and drop any stale pending.
-      el.scrollLeft = next.scrollLeft;
-      pendingScrollRef.current = null;
-      return;
-    }
-    pendingScrollRef.current = next.scrollLeft;
-    zoomRef.current = next.zoom;
-    setZoom(next.zoom);
+    applyZoom(el, next);
   }
 
   function fit() {
@@ -117,7 +127,7 @@ export function Timeline({
   function eventTime(e: React.PointerEvent): number {
     const el = scrollRef.current!;
     const rect = el.getBoundingClientRect();
-    return timeAtPoint(e.clientX - rect.left, el.scrollLeft, zoom, duration, el.clientWidth);
+    return timeAtPoint(e.clientX - rect.left, el.scrollLeft, zoomRef.current, duration, el.clientWidth);
   }
 
   function onTrackPointerDown(e: React.PointerEvent) {
@@ -140,7 +150,7 @@ export function Timeline({
       const el = scrollRef.current!;
       const rect = el.getBoundingClientRect();
       const time = clampSplitTime(
-        timeAtPoint(ev.clientX - rect.left, el.scrollLeft, zoom, duration, el.clientWidth),
+        timeAtPoint(ev.clientX - rect.left, el.scrollLeft, zoomRef.current, duration, el.clientWidth),
         duration,
       );
       setDrag({ origin: t, current: time });
@@ -159,7 +169,7 @@ export function Timeline({
         const el = scrollRef.current!;
         const rect = el.getBoundingClientRect();
         const time = clampSplitTime(
-          timeAtPoint(ev.clientX - rect.left, el.scrollLeft, zoom, duration, el.clientWidth),
+          timeAtPoint(ev.clientX - rect.left, el.scrollLeft, zoomRef.current, duration, el.clientWidth),
           duration,
         );
         onMoveSplit(t, time);
@@ -242,8 +252,8 @@ export function Timeline({
                 </button>
               </div>
             ))}
-            {duration > 0 && <div className="playhead" style={{ left: `${pct(currentTime)}%` }} />}
           </div>
+          {duration > 0 && <div className="playhead" style={{ left: `${pct(currentTime)}%` }} />}
         </div>
       </div>
     </div>
