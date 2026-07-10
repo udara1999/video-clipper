@@ -19,9 +19,10 @@ The app builds the frontend, starts a local server on `http://localhost:4859`
 1. **Choose video…** — native file picker. The source file is read in place,
    never uploaded or copied, so any file size works.
 2. **Mark splits** — press **Split here** (or the `S` key) while
-   watching/scrubbing, or type `hh:mm:ss` timestamps. The timeline strip shows
-   the resulting clips; click a red marker to delete a split, click a segment
-   to seek to its start.
+   watching/scrubbing, or type `hh:mm:ss` timestamps. Scroll on the timeline
+   to zoom in (up to 200 px/second) for frame-tight placement on long
+   videos — drag a split marker to fine-tune it, hover it for ✕ to delete,
+   and click anywhere on the strip to seek there.
 3. **Output** — choose a destination folder and an optional clip name prefix
    (defaults to the source filename).
 4. **Export** — all segments are written as
