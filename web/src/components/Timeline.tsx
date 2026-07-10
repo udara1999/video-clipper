@@ -2,10 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { computeSegments } from '../../../shared/segments';
 import { formatTimestamp } from '../../../shared/time';
 import {
-  clampScroll,
   clampSplitTime,
   clampZoom,
-  maxZoom,
   pickTickStep,
   timeAtPoint,
   zoomAroundPoint,
@@ -32,6 +30,7 @@ export function Timeline({
 }: TimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
   const [containerWidth, setContainerWidth] = useState(0);
   // While dragging: which split is held and where it currently sits.
   const [drag, setDrag] = useState<{ origin: number; current: number } | null>(null);
@@ -56,17 +55,16 @@ export function Timeline({
       const rect = el.getBoundingClientRect();
       const cursorX = e.clientX - rect.left;
       const factor = e.deltaY < 0 ? 1.25 : 0.8;
-      setZoom((z) => {
-        const next = zoomAroundPoint(
-          { zoom: z, scrollLeft: el.scrollLeft },
-          factor,
-          cursorX,
-          duration,
-          el.clientWidth,
-        );
-        el.scrollLeft = next.scrollLeft;
-        return next.zoom;
-      });
+      const next = zoomAroundPoint(
+        { zoom: zoomRef.current, scrollLeft: el.scrollLeft },
+        factor,
+        cursorX,
+        duration,
+        el.clientWidth,
+      );
+      el.scrollLeft = next.scrollLeft;
+      zoomRef.current = next.zoom;
+      setZoom(next.zoom);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -76,19 +74,21 @@ export function Timeline({
     const el = scrollRef.current;
     if (!el || duration <= 0) return;
     const next = zoomAroundPoint(
-      { zoom, scrollLeft: el.scrollLeft },
+      { zoom: zoomRef.current, scrollLeft: el.scrollLeft },
       factor,
       el.clientWidth / 2,
       duration,
       el.clientWidth,
     );
     el.scrollLeft = next.scrollLeft;
+    zoomRef.current = next.zoom;
     setZoom(next.zoom);
   }
 
   function fit() {
     const el = scrollRef.current;
     if (el) el.scrollLeft = 0;
+    zoomRef.current = 1;
     setZoom(1);
   }
 
