@@ -50,6 +50,23 @@ the browser and composited by ffmpeg unchanged.
 Works on macOS and Windows. ffmpeg/ffprobe are bundled via npm packages —
 no manual install needed.
 
+### Scheduler (TikTok)
+
+Click **Scheduler** in the header to open the posting scheduler. One tab per
+platform — TikTok works today; Facebook and YouTube are coming soon.
+
+- Paste a TikTok access token (a token with the `video.publish` scope from
+  your [TikTok developer app](https://developers.tiktok.com/)). It is stored
+  locally in `~/.video-clipper/scheduler.json`, readable only by you.
+- Choose a folder, tick the videos to post, drag to reorder, and edit each
+  caption.
+- Set the start date/time, the gap between posts, and the privacy level, then
+  hit **Schedule**.
+
+Posts publish through TikTok's Content Posting API while the app is running —
+keep it open around each scheduled time. Unaudited TikTok apps can only post
+privately ("Only me").
+
 ## Notes
 
 - Some containers (e.g. certain MKVs) can't be previewed in the browser; the

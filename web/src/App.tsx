@@ -7,9 +7,21 @@ import { Timeline } from './components/Timeline';
 import { ExportPanel } from './components/ExportPanel';
 import { CompositionPanel, type Selection } from './components/CompositionPanel';
 import { PropertiesPanel } from './components/PropertiesPanel';
+import { SchedulerPage } from './components/scheduler/SchedulerPage';
 import { defaultVideoPlacement, type ComposeLayout } from '../../shared/compose';
 
+function useHashRoute(): string {
+  const [route, setRoute] = useState(window.location.hash);
+  useEffect(() => {
+    const onChange = () => setRoute(window.location.hash);
+    window.addEventListener('hashchange', onChange);
+    return () => window.removeEventListener('hashchange', onChange);
+  }, []);
+  return route;
+}
+
 export default function App() {
+  const route = useHashRoute();
   const [video, setVideo] = useState<VideoInfo | null>(null);
   const [splits, setSplits] = useState<number[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
@@ -81,6 +93,19 @@ export default function App() {
     if (el) el.currentTime = t;
   }
 
+  if (route === '#/scheduler') {
+    return (
+      <main>
+        <header className="app-header">
+          <h1>Scheduler</h1>
+          <div className="spacer" />
+          <button onClick={() => (window.location.hash = '')}>← Back to editor</button>
+        </header>
+        <SchedulerPage />
+      </main>
+    );
+  }
+
   return (
     <main>
       <header className="app-header">
@@ -92,6 +117,7 @@ export default function App() {
           </p>
         )}
         <div className="spacer" />
+        <button onClick={() => (window.location.hash = '#/scheduler')}>Scheduler</button>
         <button onClick={chooseVideo}>{video ? 'Choose another video…' : 'Choose video…'}</button>
       </header>
       {error && <p className="error">{error}</p>}
